@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-# Instalar utilitários de sistema e suporte ao terminal interativo
+# Install system utilities and support for interactive terminal
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     procps \
@@ -9,14 +9,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Instalar dependências Python
+# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar arquivos da aplicação
+# Copy application files
 COPY . /app
 
-# Garantir que a pasta workspace exista
+# Ensure workspace directory exists
 RUN mkdir -p /app/workspace
 
 EXPOSE 5000
