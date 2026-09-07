@@ -1,0 +1,12 @@
+services:
+  web:
+    build: .
+    container_name: python_web_ide
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+    stdin_open: true
+    tty: true
+    environment:
+      - TERM=xterm-256color
