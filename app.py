@@ -18,33 +18,33 @@ BASE_DIR = Path(__file__).resolve().parent
 WORKSPACE_DIR = BASE_DIR / "workspace"
 WORKSPACE_DIR.mkdir(exist_ok=True)
 
-# Garantir que main.py exista por padrão
+# Create main.py if it doesn't exist
 if not (WORKSPACE_DIR / "main.py").exists():
     with open(WORKSPACE_DIR / "main.py", "w", encoding="utf-8") as f:
-        f.write('''# Arquivo inicial de exemplo
-def saudacao():
+        f.write('''# Initial example file
+def greeting():
     print("=" * 40)
-    print("🚀 Bem-vindo ao Python Web IDE!")
+    print("🚀 Welcome to Python Web IDE!")
     print("=" * 40)
-    nome = input("Qual o seu nome? ")
-    print(f"\\nOlá, {nome}! Seu ambiente Python está funcionando perfeitamente.\\n")
+    name = input("What is your name? ")
+    print(f"\\nHello, {name}! Your Python environment is working perfectly.\\n")
 
 if __name__ == '__main__':
-    saudacao()
+    greeting()
 ''')
 
-# Guardar sessões PTY por sid do cliente
+# Store PTY sessions by client SID
 pty_sessions = {}
 
 def get_safe_path(rel_path: str) -> Path:
-    """Garante que o caminho requisitado não saia do diretório workspace."""
+    """Ensure the requested path does not leave the workspace directory."""
     clean_path = (WORKSPACE_DIR / rel_path.lstrip("/\\")).resolve()
     if not str(clean_path).startswith(str(WORKSPACE_DIR.resolve())):
-        raise ValueError("Acesso fora do diretório de workspace não permitido.")
+        raise ValueError("Access outside the workspace directory is not allowed.")
     return clean_path
 
 def build_file_tree(directory: Path) -> list:
-    """Gera a árvore hierárquica de arquivos e pastas recursivamente."""
+    """Generates the hierarchical tree of files and folders recursively."""
     items = []
     try:
         entries = sorted(directory.iterdir(), key=lambda e: (not e.is_dir(), e.name.lower()))
@@ -67,11 +67,11 @@ def build_file_tree(directory: Path) -> list:
                     "type": "file"
                 })
     except Exception as e:
-        print(f"Erro ao ler diretório {directory}: {e}")
+        print(f"Error reading directory {directory}: {e}")
     return items
 
 def read_pty_output(sid, master_fd):
-    """Lê a saída do PTY continuamente e envia para o frontend via WebSocket."""
+    """Reads PTY output continuously and sends it to the frontend via WebSocket."""
     while True:
         try:
             r, _, _ = select.select([master_fd], [], [], 0.1)
@@ -109,7 +109,7 @@ def api_file():
         try:
             file_path = get_safe_path(path)
             if not file_path.is_file():
-                return jsonify({"success": False, "error": "Arquivo não encontrado."}), 404
+                return jsonify({"success": False, "error": "File not found."}), 404
             with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
                 content = f.read()
             return jsonify({"success": True, "path": path, "name": file_path.name, "content": content})
@@ -133,11 +133,11 @@ def api_create_file():
     data = request.get_json() or {}
     path = data.get('path', '').strip()
     if not path:
-        return jsonify({"success": False, "error": "Nome do arquivo não pode ser vazio."}), 400
+        return jsonify({"success": False, "error": "File name cannot be empty."}), 400
     try:
         file_path = get_safe_path(path)
         if file_path.exists():
-            return jsonify({"success": False, "error": "Arquivo já existe."}), 400
+            return jsonify({"success": False, "error": "File already exists."}), 400
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.touch()
         tree = build_file_tree(WORKSPACE_DIR)
@@ -151,7 +151,7 @@ def api_create_folder():
     data = request.get_json() or {}
     path = data.get('path', '').strip()
     if not path:
-        return jsonify({"success": False, "error": "Nome da pasta não pode ser vazio."}), 400
+        return jsonify({"success": False, "error": "Folder name cannot be empty."}), 400
     try:
         dir_path = get_safe_path(path)
         dir_path.mkdir(parents=True, exist_ok=True)
@@ -173,7 +173,7 @@ def handle_read_file(data):
     try:
         file_path = get_safe_path(data.get('path', ''))
         if not file_path.is_file():
-            emit('error_message', {'message': f'Arquivo não encontrado: {data.get("path")}'})
+            emit('error_message', {'message': f'File not found: {data.get("path")}'})
             return
         
         with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
@@ -199,19 +199,19 @@ def handle_save_file(data):
         
         emit('file_saved', {'path': data.get('path')})
     except Exception as e:
-        emit('error_message', {'message': f'Erro ao salvar arquivo: {e}'})
+        emit('error_message', {'message': f'Error saving file: {e}'})
 
 @socketio.on('create_file')
 def handle_create_file(data):
     try:
         rel_path = data.get('path', '').strip()
         if not rel_path:
-            emit('error_message', {'message': 'Nome do arquivo não pode ser vazio.'})
+            emit('error_message', {'message': 'File name cannot be empty.'})
             return
         
         file_path = get_safe_path(rel_path)
         if file_path.exists():
-            emit('error_message', {'message': f'Arquivo ou diretório já existe: {rel_path}'})
+            emit('error_message', {'message': f'File or directory already exists: {rel_path}'})
             return
         
         file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -221,14 +221,14 @@ def handle_create_file(data):
         socketio.emit('tree_data', {'tree': tree})
         emit('item_created', {'path': rel_path, 'type': 'file'})
     except Exception as e:
-        emit('error_message', {'message': f'Erro ao criar arquivo: {e}'})
+        emit('error_message', {'message': f'Error creating file: {e}'})
 
 @socketio.on('create_directory')
 def handle_create_directory(data):
     try:
         rel_path = data.get('path', '').strip()
         if not rel_path:
-            emit('error_message', {'message': 'Nome da pasta não pode ser vazio.'})
+            emit('error_message', {'message': 'Folder name cannot be empty.'})
             return
         
         dir_path = get_safe_path(rel_path)
@@ -238,7 +238,7 @@ def handle_create_directory(data):
         socketio.emit('tree_data', {'tree': tree})
         emit('item_created', {'path': rel_path, 'type': 'dir'})
     except Exception as e:
-        emit('error_message', {'message': f'Erro ao criar pasta: {e}'})
+        emit('error_message', {'message': f'Error creating folder: {e}'})
 
 @socketio.on('delete_item')
 def handle_delete_item(data):
@@ -256,7 +256,7 @@ def handle_delete_item(data):
         socketio.emit('tree_data', {'tree': tree})
         emit('item_deleted', {'path': rel_path})
     except Exception as e:
-        emit('error_message', {'message': f'Erro ao deletar: {e}'})
+        emit('error_message', {'message': f'Error deleting: {e}'})
 
 @socketio.on('rename_item')
 def handle_rename_item(data):
@@ -265,7 +265,7 @@ def handle_rename_item(data):
         new_path = get_safe_path(data.get('new_path', ''))
         
         if not old_path.exists():
-            emit('error_message', {'message': 'Item original não encontrado.'})
+            emit('error_message', {'message': 'Original item not found.'})
             return
         
         new_path.parent.mkdir(parents=True, exist_ok=True)
@@ -278,9 +278,9 @@ def handle_rename_item(data):
             'new_path': data.get('new_path')
         })
     except Exception as e:
-        emit('error_message', {'message': f'Erro ao renomear: {e}'})
+        emit('error_message', {'message': f'Error renaming: {e}'})
 
-# === Terminal PTY Interativo ===
+# === Interactive PTY Terminal ===
 
 @socketio.on('init_pty')
 def handle_init_pty():
@@ -330,7 +330,7 @@ def handle_pty_input(data):
         try:
             os.write(master_fd, inp.encode('utf-8'))
         except Exception as e:
-            print(f"Erro escrevendo no pty: {e}")
+            print(f"Error writing to pty: {e}")
 
 @socketio.on('pty_resize')
 def handle_pty_resize(data):
@@ -343,14 +343,14 @@ def handle_pty_resize(data):
             winsize = struct.pack('HHHH', rows, cols, 0, 0)
             fcntl.ioctl(master_fd, termios.TIOCSWINSZ, winsize)
         except Exception as e:
-            print(f"Erro no redimensionamento do PTY: {e}")
+            print(f"Error resizing PTY: {e}")
 
 @socketio.on('run_script')
 def handle_run_script(data):
     sid = request.sid
     rel_path = data.get('path', '')
     if not rel_path:
-        emit('error_message', {'message': 'Nenhum arquivo selecionado para execução.'})
+        emit('error_message', {'message': 'No file selected for execution.'})
         return
     
     if 'content' in data:
@@ -359,7 +359,7 @@ def handle_run_script(data):
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(data['content'])
         except Exception as e:
-            emit('error_message', {'message': f'Erro ao salvar antes de rodar: {e}'})
+            emit('error_message', {'message': f'Error saving before running: {e}'})
             return
 
     if sid in pty_sessions:
@@ -368,9 +368,9 @@ def handle_run_script(data):
         try:
             os.write(master_fd, cmd.encode('utf-8'))
         except Exception as e:
-            emit('error_message', {'message': f'Erro ao enviar comando para terminal: {e}'})
+            emit('error_message', {'message': f'Error sending command to terminal: {e}'})
     else:
-        emit('error_message', {'message': 'Terminal não conectado.'})
+        emit('error_message', {'message': 'Terminal not connected.'})
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -383,6 +383,6 @@ def handle_disconnect():
         pty_sessions.pop(sid, None)
 
 if __name__ == '__main__':
-    print(f"Iniciando Python Web IDE na porta 5000...")
-    print(f"Diretório de Workspace: {WORKSPACE_DIR}")
+    print(f"Starting Python Web IDE on port 5000...")
+    print(f"Workspace Directory: {WORKSPACE_DIR}")
     socketio.run(app, host='0.0.0.0', port=5000, debug=False, allow_unsafe_werkzeug=True)
