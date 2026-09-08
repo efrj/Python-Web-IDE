@@ -13,10 +13,12 @@
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-    <!-- CodeMirror -->
+    <!-- CodeMirror Core & Theme -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/foldgutter.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css">
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
@@ -26,6 +28,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/foldgutter.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/brace-fold.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/indent-fold.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/anyword-hint.min.js"></script>
 
     <!-- xterm.js (via jsdelivr) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
@@ -46,6 +50,9 @@
             --accent-green: #238636;
             --accent-green-hover: #2ea043;
             --accent-blue: #58a6ff;
+            --accent-purple: #bd93f9;
+            --accent-yellow: #f1fa8c;
+            --accent-cyan: #8be9fd;
             --text-main: #e6edf3;
             --text-muted: #8b949e;
             --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -367,6 +374,50 @@
             border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
         }
 
+        /* Custom Autocomplete / Hint Popup Styling */
+        .CodeMirror-hints {
+            background: #1e2433 !important;
+            border: 1px solid #3b4252 !important;
+            border-radius: 6px !important;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
+            padding: 4px !important;
+            font-family: var(--font-code) !important;
+            font-size: 13px !important;
+            max-height: 240px !important;
+            z-index: 1000 !important;
+        }
+
+        .CodeMirror-hint {
+            padding: 4px 8px !important;
+            border-radius: 4px !important;
+            color: #e6edf3 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            gap: 12px !important;
+        }
+
+        .CodeMirror-hint-active {
+            background: #2f384d !important;
+            color: #58a6ff !important;
+        }
+
+        .hint-badge {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .hint-badge.keyword { background: rgba(189, 147, 249, 0.2); color: #bd93f9; }
+        .hint-badge.function { background: rgba(88, 166, 255, 0.2); color: #58a6ff; }
+        .hint-badge.module { background: rgba(139, 233, 253, 0.2); color: #8be9fd; }
+        .hint-badge.type { background: rgba(241, 250, 140, 0.2); color: #f1fa8c; }
+        .hint-badge.snippet { background: rgba(80, 250, 123, 0.2); color: #50fa7b; }
+        .hint-badge.word { background: rgba(255, 255, 255, 0.1); color: #8b949e; }
+
         /* Resizer between Editor & Terminal */
         .splitter {
             height: 6px;
@@ -652,6 +703,141 @@
         let modalTarget = null;
         let parentDir = "";
 
+        // === Dicionário de Autocompletação Python ===
+        const PYTHON_KEYWORDS = [
+            "and", "as", "assert", "async", "await", "break", "class", "continue",
+            "def", "del", "elif", "else", "except", "False", "finally", "for",
+            "from", "global", "if", "import", "in", "is", "lambda", "None",
+            "nonlocal", "not", "or", "pass", "raise", "return", "True", "try",
+            "while", "with", "yield"
+        ];
+
+        const PYTHON_BUILTINS = [
+            "abs", "all", "any", "ascii", "bin", "bool", "bytearray", "bytes",
+            "callable", "chr", "classmethod", "compile", "complex", "delattr",
+            "dict", "dir", "divmod", "enumerate", "eval", "exec", "filter",
+            "float", "format", "frozenset", "getattr", "globals", "hasattr",
+            "hash", "help", "hex", "id", "input", "int", "isinstance", "issubclass",
+            "iter", "len", "list", "locals", "map", "max", "memoryview", "min",
+            "next", "object", "oct", "open", "ord", "pow", "print", "property",
+            "range", "repr", "reversed", "round", "set", "setattr", "slice",
+            "sorted", "staticmethod", "str", "sum", "super", "tuple", "type",
+            "vars", "zip"
+        ];
+
+        const PYTHON_EXCEPTIONS = [
+            "BaseException", "Exception", "ArithmeticError", "AssertionError",
+            "AttributeError", "EOFError", "ImportError", "ModuleNotFoundError",
+            "IndexError", "KeyError", "KeyboardInterrupt", "MemoryError",
+            "NameError", "NotImplementedError", "OSError", "OverflowError",
+            "RecursionError", "RuntimeError", "StopIteration", "SyntaxError",
+            "IndentationError", "SystemError", "SystemExit", "TypeError",
+            "ValueError", "ZeroDivisionError", "FileNotFoundError", "PermissionError"
+        ];
+
+        const PYTHON_MODULES = [
+            "os", "sys", "json", "math", "random", "datetime", "time", "re",
+            "subprocess", "pathlib", "shutil", "collections", "itertools",
+            "functools", "typing", "asyncio", "socket", "http", "urllib",
+            "sqlite3", "csv", "logging", "threading", "requests", "flask",
+            "fastapi", "pydantic"
+        ];
+
+        const PYTHON_SNIPPETS = [
+            { text: "def function_name(args):\n    pass", displayText: "def function()", type: "snippet" },
+            { text: "class ClassName:\n    def __init__(self):\n        pass", displayText: "class ClassName", type: "snippet" },
+            { text: "if __name__ == '__main__':\n    main()", displayText: "if __name__ == '__main__'", type: "snippet" },
+            { text: "try:\n    pass\nexcept Exception as e:\n    pass", displayText: "try / except Exception", type: "snippet" },
+            { text: "with open('filename', 'r') as f:\n    content = f.read()", displayText: "with open(...) as f", type: "snippet" },
+            { text: "for item in iterable:\n    pass", displayText: "for item in ...", type: "snippet" }
+        ];
+
+        // Custom Python hinter for CodeMirror
+        CodeMirror.registerHelper("hint", "python", function(cm) {
+            const cur = cm.getCursor();
+            const token = cm.getTokenAt(cur);
+            const line = cm.getLine(cur.line);
+            
+            let start = token.start;
+            let end = token.end;
+            let word = token.string;
+
+            // Ajusta limites se estiver digitando após pontuação/espaço
+            if (!/^[a-zA-Z0-9_]+$/.test(word)) {
+                start = cur.ch;
+                end = cur.ch;
+                word = "";
+            }
+
+            const prefix = word.toLowerCase();
+            const list = [];
+            const seen = new Set();
+
+            function addSuggestion(text, type, displayText) {
+                if (seen.has(text)) return;
+                seen.add(text);
+                list.push({
+                    text: text,
+                    displayText: displayText || text,
+                    render: function(element, self, data) {
+                        element.innerHTML = `<span>${data.displayText}</span><span class="hint-badge ${type}">${type}</span>`;
+                    }
+                });
+            }
+
+            // 1. Snippets (se o prefixo bater)
+            if (prefix.length >= 2) {
+                for (const snip of PYTHON_SNIPPETS) {
+                    if (snip.displayText.toLowerCase().includes(prefix)) {
+                        addSuggestion(snip.text, "snippet", snip.displayText);
+                    }
+                }
+            }
+
+            // 2. Keywords
+            for (const kw of PYTHON_KEYWORDS) {
+                if (kw.toLowerCase().startsWith(prefix)) {
+                    addSuggestion(kw, "keyword");
+                }
+            }
+
+            // 3. Builtins
+            for (const fn of PYTHON_BUILTINS) {
+                if (fn.toLowerCase().startsWith(prefix)) {
+                    addSuggestion(fn, "function");
+                }
+            }
+
+            // 4. Exceptions / Types
+            for (const ex of PYTHON_EXCEPTIONS) {
+                if (ex.toLowerCase().startsWith(prefix)) {
+                    addSuggestion(ex, "type");
+                }
+            }
+
+            // 5. Modules
+            for (const mod of PYTHON_MODULES) {
+                if (mod.toLowerCase().startsWith(prefix)) {
+                    addSuggestion(mod, "module");
+                }
+            }
+
+            // 6. Palavras do próprio documento (variáveis, classes e funções do usuário)
+            const docText = cm.getValue();
+            const docWords = docText.match(/[a-zA-Z_][a-zA-Z0-9_]*/g) || [];
+            for (const w of docWords) {
+                if (w.length > 2 && w.toLowerCase().startsWith(prefix) && w !== word) {
+                    addSuggestion(w, "word");
+                }
+            }
+
+            return {
+                list: list,
+                from: CodeMirror.Pos(cur.line, start),
+                to: CodeMirror.Pos(cur.line, end)
+            };
+        });
+
         // === Inicialização do CodeMirror ===
         const editor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
             mode: 'python',
@@ -673,11 +859,33 @@
                         cm.replaceSelection("    ", "end");
                     }
                 },
+                "Ctrl-Space": "autocomplete",
+                "Cmd-Space": "autocomplete",
                 "Ctrl-S": function() { saveCurrentFile(); },
                 "Cmd-S": function() { saveCurrentFile(); },
                 "F5": function() { runCurrentFile(); },
                 "Ctrl-Enter": function() { runCurrentFile(); },
                 "Cmd-Enter": function() { runCurrentFile(); }
+            }
+        });
+
+        // Trigger automático de autocomplete ao digitar
+        let autocompleteTimer = null;
+        editor.on("inputRead", function(cm, change) {
+            if (change.origin === "+input") {
+                const text = change.text[0];
+                // Ativa para letras e underscore
+                if (/^[a-zA-Z_]$/.test(text)) {
+                    clearTimeout(autocompleteTimer);
+                    autocompleteTimer = setTimeout(() => {
+                        if (!cm.state.completionActive) {
+                            cm.showHint({
+                                hint: CodeMirror.hint.python,
+                                completeSingle: false
+                            });
+                        }
+                    }, 120);
+                }
             }
         });
 
@@ -997,7 +1205,6 @@
 
             if (modalAction === 'create_file') {
                 if (!finalPath.includes('.')) finalPath += '.py';
-                // Envia criação via Socket.IO
                 socket.emit('create_file', { path: finalPath });
             } else if (modalAction === 'create_dir') {
                 socket.emit('create_directory', { path: finalPath });

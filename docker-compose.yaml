@@ -4,6 +4,9 @@ services:
     container_name: python_web_ide
     ports:
       - "5000:5000"
+      - "8080:8080"
+      - "8000:8000"
+      - "3000:3000"
     volumes:
       - .:/app
     stdin_open: true
